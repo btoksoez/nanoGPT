@@ -1,6 +1,17 @@
 # nanoGPT
 
+
+![transformer](https://imgs.search.brave.com/QlCAPeD3oC57obw7qO5AQ3OsuUk1ysfGl8j4HiEPCgM/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy8z/LzM0L1RyYW5zZm9y/bWVyLF9mdWxsX2Fy/Y2hpdGVjdHVyZS5w/bmc)
+
 ## Introduction
+
+- simple bigram: loss: 2.5
+- simple bigram with one self-attention head: 2.4
+- multiple attention heads (4): 2.27
+- with feed forward layer (simple linear layer with non-linear activation): 2.24
+- with multiple blocks of attention heads and feedforward layers + residual connections: 1.97
+- adding layer norms before feedforward and attention heads and after transformer block: 2.00
+
 
 ## Usage
 
@@ -85,8 +96,80 @@
 	This process allows the model to learn the probabilities of character sequences from the training data, starting from a state where the weights are randomly initialized around 0 with a variance of 1.
 - The .to(device) method is used to move tensors to a specified device (CPU or GPU).
 - self-attention:
-	- we want tokens to only communicate with the tokens before them (not future ones)
-	- 
+	- we want tokens to only communicate with the tokens before them (not future ones), so we use tril to set the upper triangle of weights to -inf
+	- we want to somehow make the weights adjustable, so that each token can learn what to pay attention to, so we use Linear layers
+	- we use softmax to normalize weights across rows
+	- if two elements in the context have high probabilities, they will interact stronger with each other / pay attention to each other
+	```Python
+	# a single head performing self-attention
+	# basically gets some initial random weights in the right shape
+	head_size = 16
+	key = nn.Linear(C, head_size, bias=False)	#basically just matrix multiplication with weights
+	query = nn.Linear(C, head_size, bias=False)	#basically just matrix multiplication with weights
+	k = key(x)
+	q = query(x)
+	wei = q @ k.transpose(-2, -1) # (B, T, 16) @ (B, 16, T) ---> (B, T, T)
+
+	# mask all the upper triangle (so that items only look back, not forward)
+	tril = torch.tril(torch.ones(T, T))
+	wei = wei.masked_fill(tril == 0, float('-inf'))
+
+	# normalize over rows, so that they sum to 1
+	wei = F.softmax(wei, dim=-1)
+
+	# multiply these final weights with inputs
+	out = wei @ x
+	```
+	basically doing this:
+	![attention](<./imgs/attention.png>)
+
+	The weights look like this (for each batch):
+	```
+	[[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+	[0.1574, 0.8426, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+	[0.2088, 0.1646, 0.6266, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+	[0.5792, 0.1187, 0.1889, 0.1131, 0.0000, 0.0000, 0.0000, 0.0000],
+	[0.0294, 0.1052, 0.0469, 0.0276, 0.7909, 0.0000, 0.0000, 0.0000],
+	[0.0176, 0.2689, 0.0215, 0.0089, 0.6812, 0.0019, 0.0000, 0.0000],
+	[0.1691, 0.4066, 0.0438, 0.0416, 0.1048, 0.2012, 0.0329, 0.0000],
+	[0.0210, 0.0843, 0.0555, 0.2297, 0.0573, 0.0709, 0.2423, 0.2391]]
+	```
+	- attention is basically a communication mechanism, between nodes (each character in the context), and the previous ones are always connected to the next one
+	- batches don't talk to each other (there are no weights learned in between batches)
+	- an encoder attention block would let all nodes talk to each other (no tril), a decoder block never wants future nodes to talk to previous ones (autoregresssive)
+	- self-attention: all information comes from x (keys, values, queries)
+	- cross-attention: other nodes can give information
+	- scaled attention: normalizes weights over sqrt(head size) to get variance one
+		- -> you want values to have variance of one, because otherwise softmax will "sharpen" values, e.g. converge to the one with the highest value
+- residual connections: have a direct pathway from inputs to next layer, without computation; then add up the computed layer and the direct inputs to the next layer's inputs. Because it's an addition, when backpropagating the gradients will just be passed through.
+	![residual](<./imgs/residual.png>)
+
+	- simply add the attention and feedforward to the geiven inputs:
+	```Python
+	def forward(self, x):
+		x = x + self.sa(x)
+		x = x + self.ffwd(x)
+		return x
+	```
+	- add a projection layer, that scales down from num_heads * head_size to n_embd
+	``` self.proj = nn.Linear(head_size * num_heads, n_embd) ```
+- Layer norm: instead of normalizing over columns (=batch norm), we normalize over rows
+	- in this case: normalize over features/embeddings of each token, not over batches
+	```Python
+	def _call_(self, x):
+		# calculate the forward pass
+		xmean = x.mean(1, keepdim=True) # layer mean
+		xvar = x.var(1, keepdim=True) # layer variance
+		xhat = (x - xmean) / torch.sqrt(xvar + self.eps) # normalize to unit variance
+		self.out = self.gamma * xhat + self.beta
+		return self.out
+		# gamma and beta are parameters that can be learned
+	```
+- adding a dropout layer, to prevent overfitting
+	![dropout](<./imgs/dropout.png>)
+
+
 
 ## Definitions to remember
-
+- layer norm
+- dropout layer
