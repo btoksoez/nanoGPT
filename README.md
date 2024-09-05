@@ -1,16 +1,18 @@
 # nanoGPT
-
+a decoder-only transformer trained on shakespeare
 
 ![transformer](https://imgs.search.brave.com/QlCAPeD3oC57obw7qO5AQ3OsuUk1ysfGl8j4HiEPCgM/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy8z/LzM0L1RyYW5zZm9y/bWVyLF9mdWxsX2Fy/Y2hpdGVjdHVyZS5w/bmc)
 
 ## Introduction
 
+### the different stages and the achieved loss of the model
 - simple bigram: loss: 2.5
 - simple bigram with one self-attention head: 2.4
 - multiple attention heads (4): 2.27
 - with feed forward layer (simple linear layer with non-linear activation): 2.24
 - with multiple blocks of attention heads and feedforward layers + residual connections: 1.97
 - adding layer norms before feedforward and attention heads and after transformer block: 2.00
+- scaling it up: val loss: 1.59 (took 7 minutes though, on 4GB VRAM)
 
 
 ## Usage
@@ -167,7 +169,19 @@
 	```
 - adding a dropout layer, to prevent overfitting
 	![dropout](<./imgs/dropout.png>)
-
+- in our implementation: decoder-only transformer;
+	- the triangular mask makes it a decoder
+	- encoders: no masking, all tokens can talk to each other
+	- then feed in encoder-outputs with cross attention to decoder
+- how ChatGPT was trained:
+	- pre-training:
+		- first decoder-only, on a big part of the internet: get it to be able to bubble a lot of things
+		- GPT-3: 175B parameters and 300B tokens (vs our model: 10M parameters and 300k tokens)
+		- this would just complete documents, bubble random stuff
+	- fine-tuning:
+		- give it demonstration data, with questions and answers (in the thousands)
+		- train a reward model, that predicts which answers are desirable
+		- the reward model evaluates what the model outputs and feeds it back into it
 
 
 ## Definitions to remember
