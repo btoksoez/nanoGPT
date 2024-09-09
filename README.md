@@ -1,21 +1,73 @@
 # nanoGPT
-a decoder-only transformer trained on shakespeare
-
-![transformer](https://imgs.search.brave.com/QlCAPeD3oC57obw7qO5AQ3OsuUk1ysfGl8j4HiEPCgM/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly91cGxv/YWQud2lraW1lZGlh/Lm9yZy93aWtpcGVk/aWEvY29tbW9ucy8z/LzM0L1RyYW5zZm9y/bWVyLF9mdWxsX2Fy/Y2hpdGVjdHVyZS5w/bmc)
+A decoder-only character-level transformer trained on Shakespeare
+![example](<imgs/example.png>)
 
 ## Introduction
 
-### the different stages and the achieved loss of the model
-- simple bigram: loss: 2.5
-- simple bigram with one self-attention head: 2.4
-- multiple attention heads (4): 2.27
-- with feed forward layer (simple linear layer with non-linear activation): 2.24
-- with multiple blocks of attention heads and feedforward layers + residual connections: 1.97
-- adding layer norms before feedforward and attention heads and after transformer block: 2.00
-- scaling it up: val loss: 1.59 (took 7 minutes though, on 4GB VRAM)
+This project implements a decoder-only character-level Transformer model, specifically designed to generate or complete text in the style of Shakespeare. It includes two models: a simple Bigram Language Model and a GPT-like Transformer. The goal is to demonstrate the core concepts of language modeling, attention mechanisms, and deep learning by training on Shakespeare's works.
+
+The model is trained to predict the next character in a sequence, either by generating random text from scratch or completing a given prompt. It leverages self-attention, residual connections, layer normalization, and other techniques to optimize text generation, highlighting the building blocks of modern large language models like GPT-3.
+
+Self attention basically enables tokens to pay attention to other tokens, thus improving the coherence across the predicted tokens.
+
+This is approximately how the architecture looks like:
+<br>
+<img src="imgs/transformer.webp" width=500>
+
+The learnings and implementations from this project provide insight into both the architecture and training processes used in state-of-the-art transformer models,
 
 
 ## Usage
+
+This script generates or completes text using either a Bigram Language Model or a GPT model.
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/btoksoez/nanoGPT.git
+   cd nanoGPT
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install torch
+   ```
+
+### Running
+
+Run the script:
+```bash
+python3 main.py
+```
+
+1. Choose the model:
+   - `Bigram(1)` or `GPT(2)`
+
+2. Choose action:
+   - `Generate(1)` to generate text
+   - `Complete(2)` to complete a prompt
+
+3. Enter the number of characters and (for completion) provide a prompt.
+
+### Example
+```
+Choose model:
+ Bigram(1) or GPT (2) or exit? 2
+Do you want to:
+Generate (1), complete (2) or back? 2
+How many characters do you want to generate? 100
+Your prompt to complete: Hello I am
+Generate 100 characters:
+
+Hello I am a thus?
+
+ANGELO:
+Nay, well, thy son, I'll say I not not secret
+Thy foul.
+
+Shepherd:
+```
 
 ## Learnings
 - BPE tokenizer: The BPE tokenizer used in GPT-2 is a subword tokenization method that breaks text into smaller units to handle rare and complex words. It starts by splitting words into individual characters. The most frequent pairs of characters or subwords are merged iteratively to create a vocabulary of subwords, until a predefined vocabulary size is reached. This process helps the model handle out-of-vocabulary words by breaking them into familiar subwords, allowing efficient processing with a compact vocabulary. GPT-2 uses these subwords as tokens, converting them into integer indices that the model can understand and generate text from.
@@ -183,7 +235,32 @@ a decoder-only transformer trained on shakespeare
 		- train a reward model, that predicts which answers are desirable
 		- the reward model evaluates what the model outputs and feeds it back into it
 
+### the different stages and the achieved loss of the model
+- simple bigram: loss: 2.5
+- simple bigram with one self-attention head: 2.4
+- multiple attention heads (4): 2.27
+- with feed forward layer (simple linear layer with non-linear activation): 2.24
+- with multiple blocks of attention heads and feedforward layers + residual connections: 1.97
+- adding layer norms before feedforward and attention heads and after transformer block: 2.00
+- scaling it up: val loss: 1.59 (took 7 minutes though, on 4GB VRAM)
 
-## Definitions to remember
-- layer norm
-- dropout layer
+## Definitions to Remember
+
+- **Layer Norm**:
+  Layer normalization is a technique that normalizes the inputs across features for each token. It stabilizes training by keeping the activations at a consistent scale. In practice, it calculates the mean and variance for each token (across the features) and normalizes them to a unit variance, applying learnable scaling (gamma) and shift (beta) parameters.
+
+- **Dropout Layer**:
+  Dropout is a regularization technique used to prevent overfitting. It works by randomly "dropping out" (i.e., setting to zero) a portion of the neurons during training, forcing the network to learn more robust features and avoid dependency on specific nodes.
+
+- **Residual Connections**:
+  Residual connections allow gradients to flow more easily during backpropagation by adding the input of a layer to its output, before passing it to the next layer. This helps to prevent vanishing gradient problems and enables the training of deeper networks.
+
+- **Self-Attention**:
+  Self-attention is a mechanism that allows a model to weigh the importance of different tokens in a sequence when generating predictions. It computes a set of weights that determine how much focus to place on each token when processing the current token. In this model, it ensures that each token can only attend to the previous ones, making it suitable for autoregressive tasks.
+
+- **Cross-Attention**:
+  Cross-attention differs from self-attention by allowing tokens from one sequence to attend to tokens in another sequence. This is typically used in transformer architectures with encoders and decoders, where the decoder can attend to encoder outputs.
+
+- **BPE Tokenizer**:
+  Byte Pair Encoding (BPE) is a tokenization technique that splits rare words into smaller, frequent subword units, allowing the model to handle a broader range of vocabulary efficiently. It iteratively merges frequent character pairs into subwords, helping to mitigate out-of-vocabulary issues.
+
